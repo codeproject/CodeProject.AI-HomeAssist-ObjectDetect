@@ -1,12 +1,25 @@
 # CodeProject.AI Home Assistant Object Detection custom component
 
-# This version has been updated to fix the issue with "ANTIALIAS" command being deprecated in Pillow >= 10 in latest HomeAssistant (as of 06/08/2023)
+## This version has been updated to fix the issue with "ANTIALIAS" command being deprecated in Pillow >= 10 in latest HomeAssistant (as of 06/08/2023)
 
 This component is a direct port of the [HASS-Deepstack-object](https://github.com/robmarkcole/HASS-Deepstack-object) component by [Robin Cole](https://github.com/robmarkcole). This component provides AI-based Object Detection capabilities using [CodeProject.AI Server](https://codeproject.com/ai). 
 
+ [CodeProject.AI Server](https://codeproject.com/ai) is a service which runs either in a Docker container or as a Windows Service and exposes various an API for many AI inferencing operations via a REST API. The Object Detection capabilities use the [YOLO](https://arxiv.org/pdf/1506.02640.pdf) algorithm as implemented by Ultralytics and others. It can identify 80 different kinds of objects by default, but custom models are also available that focus on specific objects such as animals, license plates or objects typically encountered by home webcams. CodeProject.AI Server is free, locally installed, and can run without an external internet connection, is is comatible with Windows, Linux, macOS. It can run on Raspberry Pi, and supports CUDA and embedded Intel GPUs.
+
+On the machine in which you are running CodeProject.AI server, either ensure the service is running, or if using Docker, [start a Docker container](https://www.codeproject.com/ai/docs/why/running_in_docker.html#launching-a-container). 
+
+### A note on Ports
+CodeProject.AI Server typically runs on port 32168, so you will need to ensure the machine hosting the server has this port open. If you need to changes ports (eg switch to port 80) thenf or Docker use the -p flag:
+```
+docker run --name CodeProject.AI-Server -d -p 80:32168 ^
+ --mount type=bind,source=C:\ProgramData\CodeProject\AI\docker\data,target=/etc/codeproject/ai ^
+ --mount type=bind,source=C:\ProgramData\CodeProject\AI\docker\modules,target=/app/modules ^
+   codeproject/ai-server
+```
+For Windows server you will need to either set an environment variable `CPAI_PORT` with value 80 (on the host running CodeProject.AI Server), or edit the appsettings.json file in the `C:\Program Files\CodeProject\AI folder` and change the value of the CPAI_PORT environment variable in the file.
 
 ## Usage of this component
-Thanks again to Robin for the original write up for his component. Please refer to the extended documentation available on the official repo or here: https://github.com/NeoMod/CodeProject.AI-HomeAssist-ObjectDetect/blob/master/extended-readme.md
+Thanks again to Robin for the original write up for his component.
 
 The `codeproject_ai_object` component adds an `image_processing` entity where the state of the entity is the total count of target objects that are above a `confidence` threshold which has a default value of 80%. You can have a single target object class, or multiple. The time of the last detection of any target object is in the `last target detection` attribute. The type and number of objects (of any confidence) is listed in the `summary` attributes. Optionally a region of interest (ROI) can be configured, and only objects with their center (represented by a `x`) within the ROI will be included in the state count. The ROI will be displayed as a green box, and objects with their center in the ROI have a red box.
 
@@ -15,9 +28,7 @@ Also optionally the processed image can be saved to disk, with bounding boxes sh
 **Note** that by default the component will **not** automatically scan images, but requires you to call the `image_processing.scan` service e.g. using an automation triggered by motion.
 
 ## Home Assistant setup
-
-- Install using HACS
-- Manual Install: place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure object detection. **Important:** It is necessary to configure only a single camera per `codeproject_ai_object` entity. If you want to process multiple cameras, you will therefore need multiple `codeproject_ai_object` `image_processing` entities.
+Place the `custom_components` folder in your configuration directory (or add its contents to an existing `custom_components` folder). Then configure object detection. **Important:** It is necessary to configure only a single camera per `codeproject_ai_object` entity. If you want to process multiple cameras, you will therefore need multiple `codeproject_ai_object` `image_processing` entities.
 
 The component can optionally save snapshots of the processed images. If you would like to use this option, you need to create a folder where the snapshots will be stored. The folder should be in the same folder where your `configuration.yaml` file is located. In the example below, we have named the folder `snapshots`.
 
@@ -131,7 +142,13 @@ homeassistant:
 
 media_source:
 ```
-And configure CodeProject.AI Server to use the above directory for `save_file_folder`, then saved images can be browsed from the HA front end.
+And configure CodeProject.AI Server to use the above directory for `save_file_folder`, then saved images can be browsed from the HA front end like below:
+
+<p align="center">
+<img src="https://github.com/robmarkcole/HASS-Deepstack-object/blob/master/docs/media_player.png" width="750">
+
+<small>(Image courtesy of Robin Cole, and uses his original Deepstack implementation)</small>
+</p>
 
 ## Face recognition
 For face recognition with CodeProject.AI Server use https://github.com/codeproject/CodeProject.AI-HomeAssist-FaceDetect
@@ -141,6 +158,26 @@ For face recognition with CodeProject.AI Server use https://github.com/codeproje
  - For CodeProject.AI Server setup questions, please see see the [CodeProject.AI Server docs](https://www.codeproject.com/AI/docs/)
  - For bugs and suggestions related to CodeProject.AI Server, please use the [CodeProject.AI forum](https://www.codeproject.com/Feature/CodeProjectAI-Discussions.aspx). 
  - For general chat or to discuss Home Assistant specific issues related to configuration or use cases, please [use the Home Assistant forums](https://community.home-assistant.io/).
+
+### Docker tips
+
+Please view the [CodeProject.AI Server docs](https://www.codeproject.com/AI/docs/why/running_in_docker.html)
+Add the `-d` flag to run the container in background
+
+### FAQ
+Q1: I get the following warning, is this normal?
+```
+2019-01-15 06:37:52 WARNING (MainThread) [homeassistant.loader] You are using a custom component for image_processing.codeproject_ai_face which has not been tested by Home Assistant. This component might cause stability problems, be sure to disable it if you do experience issues with Home Assistant.
+```
+A1: Yes this is normal
+
+------
+
+Q6: I am getting an error from Home Assistant: `Platform error: image_processing - Integration codeproject_ai_object not found`
+
+A6: This can happen when you are running in Docker/Hassio, and indicates that one of the dependencies isn't installed. It is necessary to reboot your Hassio device, or rebuild your Docker container. Note that just restarting Home Assistant will not resolve this.
+
+------
 
 ## Objects
 The following lists all valid target object names:
@@ -169,3 +206,15 @@ Currently only the helper functions are tested, using pytest.
 * `source venv/bin/activate`
 * `pip install -r requirements-dev.txt`
 * `venv/bin/py.test custom_components/codeproject_ai_object/tests.py -vv -p no:warnings`
+
+## Videos of usage
+
+Robin Cole has a series of videos using Deepstack with Home Asssistant which may provide some assistance.
+
+Checkout this excellent video of usage from [Everything Smart Home](https://www.youtube.com/channel/UCrVLgIniVg6jW38uVqDRIiQ)
+
+[![](http://img.youtube.com/vi/vMdpLiAB9dI/0.jpg)](http://www.youtube.com/watch?v=vMdpLiAB9dI "")
+
+Also see the video of a presentation I did to the [IceVision](https://airctic.com/) community on deploying Deepstack on a Jetson nano.
+
+[![](http://img.youtube.com/vi/1O0mCaA22fE/0.jpg)](http://www.youtube.com/watch?v=1O0mCaA22fE "")
