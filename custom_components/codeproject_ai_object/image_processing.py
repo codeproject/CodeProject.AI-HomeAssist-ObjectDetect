@@ -344,7 +344,7 @@ class ObjectClassifyEntity(ImageProcessingEntity):
         # resize image if different then default
         if self._scale != DEAULT_SCALE:
             newsize = (self._image_width * self._scale, self._image_width * self._scale)
-            self._image.thumbnail(newsize, Image.ANTIALIAS)
+            self._image.thumbnail(newsize, Image.LANCZOS)
             self._image_width, self._image_height = self._image.size
             with io.BytesIO() as output:
                 self._image.save(output, format="JPEG")
